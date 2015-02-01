@@ -22,6 +22,7 @@ set args=%args% %1
 goto beginloop
 :endloop
 
-%actualfile% %args%
+<INTERPRETER> %actualfile% %args%
 
 endlocal
+
