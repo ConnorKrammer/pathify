@@ -5,8 +5,8 @@ import sys
 import utils
 
 # Get path to important files
-templatePath = os.path.join(os.path.dirname(__file__), 'template.bat')
-configPath   = os.path.join(os.path.dirname(__file__), 'config.ini')
+templatePath = os.path.join(os.path.dirname(__file__ + '../templates/'), 'template.bat')
+configPath   = os.path.join(os.path.dirname(__file__ + '../'), 'config.ini')
 
 # Parse defaults
 config = configparser.ConfigParser()
