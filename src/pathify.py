@@ -5,8 +5,8 @@ import sys
 import utils
 
 # Get path to important files
-templatePath = os.path.join(os.path.dirname(__file__ + '../templates/'), 'template.bat')
-configPath   = os.path.join(os.path.dirname(__file__ + '../'), 'config.ini')
+templatePath = os.path.join(os.path.dirname(__file__), '../templates/', 'template.bat')
+configPath   = os.path.join(os.path.dirname(__file__), '../', 'config.ini')
 
 # Parse defaults
 config = configparser.ConfigParser()
@@ -25,10 +25,8 @@ parser = argparse.ArgumentParser(description='Creates a .bat file that redirects
                                              'Useful for selectively adding programs to the PATH environment variable.',
                                  formatter_class=argparse.RawTextHelpFormatter)
 
-parser.add_argument('target',
+parser.add_argument('targetPath',
                   type=str,
-                  required=True,
-                  dest='targetPath',
                   help='The target executable.\n\n',
                   metavar='TARGET')
 
@@ -135,3 +133,10 @@ template = template.replace('<INTERPRETER> ', interpreter + (' ' if interpreter 
 destFile = open(destPath, 'w')
 destFile.write(template)
 destFile.close()
+
+# Output results
+print('=========================================\n')
+print('  Pathification success!')
+print('    TARGET:      ' + targetPath)
+print('    DESTINATION: ' + destPath)
+print('\n=========================================')
