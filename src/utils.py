@@ -1,5 +1,5 @@
 # --------------------------------------------------------
-# Credit goes to Preet Kukreti for the following
+# Credit goes to Preet Kukreti for which()
 # See the original at http://stackoverflow.com/a/18547150
 # --------------------------------------------------------
 
@@ -82,3 +82,57 @@ def which(program, case_sensitive=_IS_CASE_SENSITIVE_FILESYSTEM):
                     return exe_file
 
     return None
+
+def prompt(prompt, choices={}, options={}):
+    defaultOptions = {
+        'case_insensitive': False,
+        'restrict_choices': True
+    }
+
+    # Merge passed options with defaults.
+    options = dict(list(defaultOptions.items()) + list(options.items()))
+
+    # Keep requesting input while user responses are invalid
+    # User can cancel by sending a keyboard interrupt (CTRL-C on Windows)
+    result = None
+    while result == None:
+        print(prompt)
+
+        try:
+            response = input('=> ')
+            print()
+        except KeyboardInterrupt:
+            break
+
+        # Expand the contents of tuple and list keys into individual keys
+        if choices:
+            for key, value in choices.copy().items():
+                if type(key) == tuple or type(key) == list:
+                    choices.pop(key)
+
+                    for i in key:
+                        choices[i] = value
+
+        # Make input and option keys case-insensitive
+        if options['case_insensitive']:
+            response = response.lower()
+
+            for key, value in choices.copy().items():
+                del choices[key]
+                choices[key.lower()] = value
+
+        # Parse result. If invalid and 'restrict_choices' is set, prompt again.
+        if response in choices.keys():
+            result = choices[response]
+        elif choices and options['restrict_choices']:
+            print("Response '" + response + "'was not a valid option.")
+            continue;
+        else:
+            result = response
+
+    # Let the user know they cancelled successfully.
+    if result == None:
+        print('Input cancelled.')
+
+    return result
+

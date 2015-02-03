@@ -130,13 +130,30 @@ template = template.replace('<DIRECTORY>', targetPath)
 template = template.replace('<INTERPRETER> ', interpreter + (' ' if interpreter else ''))
 
 # Write resulting file to the destination folder
-destFile = open(destPath, 'w')
-destFile.write(template)
-destFile.close()
+writeDestination = True
+if os.path.isfile(destPath):
+    message = "File '" + os.path.basename(destPath) + "' already exists at '" + destFolder + "'. Overwrite? [y/n]"
+
+    choices = {
+        ('y', 'yes'): True,
+        ('n', 'no'): False
+    }
+
+    writeDestination = utils.prompt(message, choices, {'case_insensitive': True})
+
+if writeDestination:
+    destFile = open(destPath, 'w')
+    destFile.write(template)
+    destFile.close()
 
 # Output results
 print('=========================================\n')
-print('  Pathification success!')
+
+if writeDestination:
+    print('  Pathification success!')
+else:
+    print('  Pathification cancelled.')
+
 print('    TARGET:      ' + targetPath)
 print('    DESTINATION: ' + destPath)
 print('\n=========================================')
