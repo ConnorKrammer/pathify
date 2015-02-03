@@ -69,21 +69,59 @@ parser.add_argument('-s', '--save',
 args = parser.parse_args()
 
 # Extract paths
-targetPath = os.path.abspath(args.targetPath)
-destFolder = os.path.abspath(args.destFolder)
+targetPath   = os.path.abspath(args.targetPath)
+targetFolder = os.path.dirname(targetPath)
+destFolder   = os.path.abspath(args.destFolder)
+
+# Construct pathify destination
+(filename, filetype) = os.path.splitext(os.path.basename(targetPath))
+filename = args.filename or filename
+
+# Check if target folder exists
+# Fetch all filenames
+# Compare filenames without extensions to passed target
+# If more than one exist (ex: foo.bat and foo.sh) prompt user to pick one
+if os.path.exists(targetFolder) and not os.path.exists(targetPath):
+    files = os.listdir(targetFolder)
+
+    for i, elem in enumerate(files):
+        files[i] = os.path.splitext(elem)
+
+    # Get all files whose base name is the same as the target
+    suggestions = [elem[0] + elem[1] for elem in files if elem[0] == filename]
+
+    # Build prompt
+    if not filetype:
+        message = 'Which ' + filename + ' do you want to pathify?'
+    else:
+        message = filename + filetype + ' not found. Did you mean:'
+
+    options = {}
+
+    for i, suggestion in enumerate(suggestions):
+        message += '\n' + str(i + 1) + ' ' + suggestion
+        options[str(i + 1)] = suggestion
+
+    # Prompt user, catching keyboard interrupt
+    try:
+        result = utils.prompt(message, options, {'catch_interrupt': False})
+    except KeyboardInterrupt:
+        sys.exit('Selection cancelled.')
+
+    # Change path variables to match new target
+    (filename, filetype) = os.path.splitext(result)
+    targetPath = os.path.join(targetFolder, filename + filetype)
 
 if not os.path.exists(targetPath):
     sys.exit('ERROR: The target executable could not be found at the given location.')
 if not os.path.isfile(targetPath):
     sys.exit('ERROR: The target path does not point to a file.')
-elif not os.path.exists(destFolder):
+if not os.path.exists(destFolder):
     sys.exit('ERROR: The destination folder could not be found.')
-elif not os.path.isdir(destFolder):
+if not os.path.isdir(destFolder):
     sys.exit('ERROR: The destination os.path.does not point to a directory.')
 
-# Construct path for .bat file
-(filename, filetype) = os.path.splitext(os.path.basename(targetPath))
-filename = args.filename or filename
+# Build destination path. Change the extension to match the template.
 destPath = os.path.join(destFolder, filename) + os.path.splitext(templatePath)[1]
 
 # Determine correct interpreter

@@ -86,7 +86,8 @@ def which(program, case_sensitive=_IS_CASE_SENSITIVE_FILESYSTEM):
 def prompt(prompt, choices={}, options={}):
     defaultOptions = {
         'case_insensitive': False,
-        'restrict_choices': True
+        'restrict_choices': True,
+        'catch_interrupt': True
     }
 
     # Merge passed options with defaults.
@@ -102,7 +103,10 @@ def prompt(prompt, choices={}, options={}):
             response = input('=> ')
             print()
         except KeyboardInterrupt:
-            break
+            if options['catch_interrupt']:
+                break
+            else:
+                raise
 
         # Expand the contents of tuple and list keys into individual keys
         if choices:
@@ -125,7 +129,7 @@ def prompt(prompt, choices={}, options={}):
         if response in choices.keys():
             result = choices[response]
         elif choices and options['restrict_choices']:
-            print("Response '" + response + "'was not a valid option.")
+            print("Response '" + response + "' was not a valid option.")
             continue;
         else:
             result = response
