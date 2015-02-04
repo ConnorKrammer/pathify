@@ -73,7 +73,7 @@ if args.targetOption:
     section = section.upper()
 
     if not config.has_section(section):
-        sys.exit('ERROR: Unsupported option passed.')
+        sys.exit('ERROR: Unsupported section "' + section + '" passed.')
 
     if section == 'INTERPRETER' and option and option[0] != '.':
         option = '.' + option
