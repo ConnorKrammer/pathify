@@ -155,7 +155,7 @@ if not os.path.isfile(targetPath):
 if not os.path.exists(destFolder):
     sys.exit('ERROR: The destination folder could not be found.')
 if not os.path.isdir(destFolder):
-    sys.exit('ERROR: The destination os.path.does not point to a directory.')
+    sys.exit('ERROR: The destination path does not point to a folder.')
 
 # Build destination path. Change the extension to match the template.
 destPath = os.path.join(destFolder, filename) + os.path.splitext(templatePath)[1]

@@ -18,6 +18,9 @@ Options:
    filename after the folder path is equivalent to passing that
    filename in with the `--name` option. This option is not required
    if a default destination has been set.
+   NOTE: The --name substitution function is under review and is not
+   yet implemented. For now, including a filename in the destination
+   path will raise an error.
 
    -n <name> | --name <name>
    The filename that the pathified file should be given. Defaults to
