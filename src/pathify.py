@@ -1,4 +1,5 @@
-import argparse, configparser, os, sys, utils
+from argparse import ArgumentParser, HelpFormatter
+import configparser, os, sys, utils, re
 
 # Get the paths of important files
 templatePath = os.path.join(os.path.dirname(__file__), '../templates/', 'template.bat')
@@ -9,22 +10,37 @@ helpFilePath = os.path.join(os.path.dirname(__file__), '../', 'helpfile.txt')
 config = configparser.ConfigParser()
 config.read(configPath)
 
-# If a default destination is specified, don't require the -d option
-defaultDest  = config.get('DEFAULT', 'DestinationFolder', fallback=None)
-destRequired = defaultDest == None
-
 # If INTERPRETER section doesn't exist, create it
+if not config.has_section('GENERAL'):
+    config.add_section('GENERAL')
 if not config.has_section('INTERPRETER'):
     config.add_section('INTERPRETER')
 
+# If a default destination is specified, don't require the -d option
+defaultDest  = config.get('GENERAL', 'DestinationFolder', fallback=None)
+destRequired = defaultDest is None
+
 # Parse arguments
-parser = argparse.ArgumentParser(add_help=False)
+parser = ArgumentParser(add_help=False)
+subparsers = parser.add_subparsers()
 
-group = parser.add_mutually_exclusive_group(required=True)
+# Excludes the "usage:" reminder
+class MinimalFormatter(HelpFormatter):
+    def _format_usage(self, usage, actions, groups, prefix=None):
+        return ''
+
+# The config sub-command
+configParser = subparsers.add_parser('config', add_help=False, formatter_class=MinimalFormatter)
+configGroup = configParser.add_mutually_exclusive_group(required=True)
+configGroup.add_argument('--set', dest='setOption', nargs=2, const=None)
+configGroup.add_argument('--unset', dest='unsetOption', const=None)
+
+# group.add_argument('--setopt', dest='setOption', nargs=2)
+
+# The main arguments
+group = parser.add_mutually_exclusive_group()
 group.add_argument('-h', '--help', dest='printHelp', action='store_true')
-group.add_argument('--setopt', dest='setOption', nargs=2)
 group.add_argument('targetPath', type=str, nargs='?')
-
 parser.add_argument('-d', '--destination', dest='destFolder', type=str, required=destRequired, default=defaultDest)
 parser.add_argument('-n', '--name', dest='filename', type=str)
 parser.add_argument('-i', '--interpreter', dest='interpreter', nargs='?', default=False, const=True)
@@ -32,11 +48,60 @@ parser.add_argument('--save', dest='save', type=str, nargs='?', const='id',
         choices=['i', 'd', 'id', 'di', 'interpreter', 'destination'])
 
 args = parser.parse_args()
+args.setOption = args.setOption if hasattr(args, 'setOption') else False
+args.unsetOption = args.unsetOption if hasattr(args, 'unsetOption') else False
+args.targetOption = args.setOption or [args.unsetOption]
 
-# Print help text and exit.
+# Print help text and exit
 if args.printHelp:
     with open(helpFilePath, 'r') as f:
         print(f.read())
+    sys.exit()
+
+# Set provided options and exit
+if args.targetOption:
+
+    # Parse "section[option]" format
+    m = re.match(r"(\w+)(?:\[(.+?)\])?", args.targetOption[0])
+    (section, option) = m.group(1, 2)
+
+    # If only one match was made, assume that it was
+    # the option and make the section GENERAL.
+    if option is None:
+        (section, option) = ('GENERAL', section)
+
+    section = section.upper()
+
+    if not config.has_section(section):
+        sys.exit('ERROR: Unsupported option passed.')
+
+    if section == 'INTERPRETER' and option and option[0] != '.':
+        option = '.' + option
+
+    if args.unsetOption:
+        if config.has_option(section, option):
+            config.remove_option(section, option)
+        else:
+            sys.exit('ERROR: Option "' + option + '" does not exist.')
+    else:
+        value = args.targetOption[1]
+
+        if not option:
+            sys.exit('ERROR: Invalid option passed.')
+        if option and section == 'INTERPRETER' and utils.which(value) is None:
+            sys.exit('ERROR: Interpreter "' + value + '" could not be found.')
+
+        config.set(section, option, value)
+
+    # Save changes to file
+    with open('config.ini', 'w') as f:
+        config.write(f)
+
+    if args.setOption:
+        print('Option set succesfully.')
+    else:
+        print('Option cleared successfully.')
+
     sys.exit()
 
 # Extract paths
@@ -107,9 +172,9 @@ elif defaultInterpreter:               # implicitly "and not args.interpreter"
 else:
     interpreter = ''
 
-if interpreter == None:
+if interpreter is None:
     sys.exit('ERROR: Flag -i was passed, but no default interpreter exists for filetype "' + filetype + '".')
-if interpreter and utils.which(interpreter) == None:
+if interpreter and utils.which(interpreter) is None:
     sys.exit('ERROR: Interpreter "' + interpreter + '" could not be found.')
 
 # Read in template file and fill target path and interpreter
@@ -152,7 +217,7 @@ if args.save and writeDestination:
         config.set('INTERPRETER', filetype, interpreter)
 
     if saveOpts['destination']:
-        config.set('DEFAULT', 'DestinationFolder', args.destFolder)
+        config.set('GENERAL', 'destinationfolder', args.destFolder)
 
     if saveOpts['interpreter'] or saveOpts['destination']:
         with open('config.ini', 'w') as f:
