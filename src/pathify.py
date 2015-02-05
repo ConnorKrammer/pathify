@@ -17,12 +17,12 @@ if not config.has_section('INTERPRETER'):
     config.add_section('INTERPRETER')
 
 # If a default destination is specified, don't require the -d option
-defaultDest  = config.get('GENERAL', 'DestinationFolder', fallback=None)
+defaultDest  = config.get('GENERAL', 'DefaultDestination', fallback=None)
 destRequired = defaultDest is None
 
 # Parse arguments
 parser = ArgumentParser(add_help=False)
-subparsers = parser.add_subparsers()
+subparsers = parser.add_subparsers(dest='cmd')
 
 # Excludes the "usage:" reminder
 class MinimalFormatter(HelpFormatter):
@@ -34,35 +34,46 @@ configParser = subparsers.add_parser('config', add_help=False, formatter_class=M
 configGroup = configParser.add_mutually_exclusive_group(required=True)
 configGroup.add_argument('--set', dest='setOption', nargs=2, const=None)
 configGroup.add_argument('--unset', dest='unsetOption', const=None)
+configGroup.add_argument('--print', dest='printConfig', action='store_true')
 
-# group.add_argument('--setopt', dest='setOption', nargs=2)
-
-# The main arguments
-group = parser.add_mutually_exclusive_group()
-group.add_argument('-h', '--help', dest='printHelp', action='store_true')
-group.add_argument('targetPath', type=str, nargs='?')
-parser.add_argument('-d', '--destination', dest='destFolder', type=str, required=destRequired, default=defaultDest)
-parser.add_argument('-n', '--name', dest='filename', type=str)
-parser.add_argument('-i', '--interpreter', dest='interpreter', nargs='?', default=False, const=True)
-parser.add_argument('--save', dest='save', type=str, nargs='?', const='id',
+# The main command
+mainParser = subparsers.add_parser('do', add_help=False, formatter_class=MinimalFormatter)
+mainParser.add_argument('targetPath', type=str, nargs='?')
+mainParser.add_argument('-d', '--destination', dest='destFolder', type=str, required=destRequired, default=defaultDest)
+mainParser.add_argument('-n', '--name', dest='filename', type=str)
+mainParser.add_argument('-i', '--interpreter', dest='interpreter', nargs='?', default=False, const=True)
+mainParser.add_argument('--save', dest='save', type=str, nargs='?', const='id',
         choices=['i', 'd', 'id', 'di', 'interpreter', 'destination'])
 
+# The help command
+helpParser = subparsers.add_parser('help', add_help=False, formatter_class=MinimalFormatter)
+
 args = parser.parse_args()
-args.setOption = args.setOption if hasattr(args, 'setOption') else False
-args.unsetOption = args.unsetOption if hasattr(args, 'unsetOption') else False
-args.targetOption = args.setOption or [args.unsetOption]
+
+# Exit if no command used
+if args.cmd is None:
+    print('usage: pathify [help | config | do] [args]\n' +
+          'For more detailed usage, run `pathify help`')
+    sys.exit()
 
 # Print help text and exit
-if args.printHelp:
+if args.cmd == 'help':
     with open(helpFilePath, 'r') as f:
         print(f.read())
     sys.exit()
 
 # Set provided options and exit
-if args.targetOption:
+if args.cmd == 'config':
+    if args.printConfig:
+        with open(configPath, 'r') as f:
+            print('\nconfig.ini:\n')
+            print('  ' + f.read().replace('\n', '\n  '))
+            sys.exit()
+
+    targetOption = args.setOption or [args.unsetOption]
 
     # Parse "section[option]" format
-    m = re.match(r"(\w+)(?:\[(.+?)\])?", args.targetOption[0])
+    m = re.match(r"(\w+)(?:\[(.+?)\])?", targetOption[0])
     (section, option) = m.group(1, 2)
 
     # If only one match was made, assume that it was
@@ -84,7 +95,7 @@ if args.targetOption:
         else:
             sys.exit('ERROR: Option "' + option + '" does not exist.')
     else:
-        value = args.targetOption[1]
+        value = targetOption[1]
 
         if not option:
             sys.exit('ERROR: Invalid option passed.')
@@ -217,7 +228,7 @@ if args.save and writeDestination:
         config.set('INTERPRETER', filetype, interpreter)
 
     if saveOpts['destination']:
-        config.set('GENERAL', 'destinationfolder', args.destFolder)
+        config.set('GENERAL', 'DefaultDestination', args.destFolder)
 
     if saveOpts['interpreter'] or saveOpts['destination']:
         with open('config.ini', 'w') as f:
