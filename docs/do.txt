@@ -1,0 +1,51 @@
+do => Pathify a file.
+
+Usage:
+  pathify do <target> [--destination <path>] [-name <name>]
+             [--interpreter <interpreter>] [--save <options>]
+
+Options:
+  --destination | -d
+  Specifies the folder to put the pathified file in. Including a
+  filename after the folder path is equivalent to passing that
+  filename in with the `--name` option. This option is not required
+  if a default destination has been set.
+  NOTE: The --name substitution function is under review and is not
+  yet implemented. For now, including a filename in the destination
+  path will raise an error.
+
+  --name | -n
+  Specifies the name the pathified file is to have. Will be
+  overridden by `--destination` if that option is passed with a
+  filename included. Defaults to the name of the `<target>`.
+
+  --interpreter | -i
+  Specifies the interpreter to pass the pathified file to. This
+  option can be used on Windows as a shebang substitute when
+  pathifying scripts. It is of limited use on other systems.
+
+  --save | -s
+  Saves specified options used in the current call to pathify
+  as defaults. If pathify is cancelled mid-run then for safety
+  options will not be saved.
+
+  <target>
+  An absolute or relative path to the file to be pathified.
+
+  <path>
+  A path to the destination folder. May include a filename, in which
+  case the `<name>` argument will be overridden.
+
+  <name>
+  The name to use for the pathified file.
+
+  <interpreter>
+  The path of an interpreter, or just the interpreter's command if it
+  exists in the user's path already.
+
+  <options>
+  The type of information to save from the current run of pathify.
+  'i' or 'interpreter' will save `<interpreter>` (if specified> as the
+  default for the filetype of the `<target>`. 'd' or 'destination' will
+  save `<destination>` as the default for any filetype. 'id' or 'di' are
+  shorthand for both.

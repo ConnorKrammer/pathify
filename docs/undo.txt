@@ -1,0 +1,19 @@
+undo => Unpathify a file.
+
+Usage:
+  pathify undo <name> [--destination <path>]
+
+Options:
+  --destination | -d
+  Specifies the folder of the pathified file that is to be removed.
+  Optional if the config setting general[defaultdestination] is
+  set.
+
+  <name>
+  The filename of the pathified file to remove.
+
+  <path>
+  The path to the folder containing the file to unpathify. Defaults
+  to the config setting GENERAL[DefaultDestination] if the
+  --destination flag is not passed.
+

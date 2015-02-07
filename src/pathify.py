@@ -4,7 +4,7 @@ import configparser, os, sys, utils, re
 # Get the paths of important files
 templatePath = os.path.join(os.path.dirname(__file__), '../templates/', 'template.bat')
 configPath   = os.path.join(os.path.dirname(__file__), '../', 'config.ini')
-helpFilePath = os.path.join(os.path.dirname(__file__), '../', 'helpfile.txt')
+helpFilePath = os.path.join(os.path.dirname(__file__), '../', 'docs/')
 
 # Parse defaults
 config = configparser.ConfigParser()
@@ -38,15 +38,16 @@ configGroup.add_argument('--print', dest='printConfig', action='store_true')
 
 # The main command
 mainParser = subparsers.add_parser('do', add_help=False, formatter_class=MinimalFormatter)
-mainParser.add_argument('targetPath', type=str, nargs='?')
+mainParser.add_argument('targetPath', type=str)
 mainParser.add_argument('-d', '--destination', dest='destFolder', type=str, required=destRequired, default=defaultDest)
 mainParser.add_argument('-n', '--name', dest='filename', type=str)
 mainParser.add_argument('-i', '--interpreter', dest='interpreter', nargs='?', default=False, const=True)
-mainParser.add_argument('--save', dest='save', type=str, nargs='?', const='id',
+mainParser.add_argument('-s', '--save', dest='save', type=str, nargs='?', const='id',
         choices=['i', 'd', 'id', 'di', 'interpreter', 'destination'])
 
 # The help command
 helpParser = subparsers.add_parser('help', add_help=False, formatter_class=MinimalFormatter)
+helpParser.add_argument('helpFile', type=str, nargs='?')
 
 args = parser.parse_args()
 
@@ -58,8 +59,16 @@ if args.cmd is None:
 
 # Print help text and exit
 if args.cmd == 'help':
-    with open(helpFilePath, 'r') as f:
-        print(f.read())
+    if args.helpFile in ['do', 'undo', 'config', 'help']:
+        helpFile = os.path.join(helpFilePath, args.helpFile + '.txt')
+    elif args.helpFile:
+        sys.exit('Sorry, no help available for "' + args.helpFile + '".')
+    else:
+        helpFile = os.path.join(helpFilePath, 'general.txt')
+
+    with open(helpFile, 'r') as f:
+        print('\n' + f.read())
+
     sys.exit()
 
 # Set provided options and exit

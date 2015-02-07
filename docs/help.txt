@@ -1,0 +1,8 @@
+help => Print help text.
+
+Usage:
+  pathify help [<command>]
+
+Options:
+  <command>
+  The name of a command to get help for.

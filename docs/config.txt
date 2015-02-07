@@ -1,0 +1,28 @@
+config => Manage pathify's configuration settings.
+
+Usage:
+  pathify config --set <option> <value>
+  pathify config --unset <option>
+  pathify config --print
+
+Options:
+  --set
+  Sets the a configuration option to the the given value.
+
+  --unset
+  Unsets a configuration option.
+
+  --print
+  Prints config.ini.
+
+  <option>
+  A config option. Options are passed in a `section[option]` format,
+  or just `option` with the section assumed to be `general`. Option
+  names are case-insensitive. Currently the available options are:
+  Currently the available options are:
+  => general[defaultdestination]: the default destination path
+  => interpreter[<filetype>]: the default interpreter for the
+     given filetype
+
+  <value>
+  A value to be assigned to an option.

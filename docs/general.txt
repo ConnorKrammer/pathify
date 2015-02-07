@@ -1,0 +1,9 @@
+pathify => Add a file to the system path.
+
+Usage:
+   pathify help [<command>]
+   pathify do <target> [-d] [-n] [-i] [-s]
+   pathify undo <filename> [-d]
+   pathify config [--set <option> <value>] | [--unset <option>]
+
+Run `pathify help <command>` for help about a specific command.
