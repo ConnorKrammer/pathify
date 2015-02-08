@@ -129,7 +129,7 @@ def prompt(prompt, choices={}, options={}):
         if response in choices.keys():
             result = choices[response]
         elif choices and options['restrict_choices']:
-            print("Response '" + response + "' was not a valid option.")
+            print("Response '" + response + "' is not a valid option.")
             continue;
         else:
             result = response
