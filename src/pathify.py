@@ -6,12 +6,12 @@ import configparser, os, sys, utils, re
 # ================================
 
 # Get the paths of important files
-templatePath = os.path.join(os.path.dirname(__file__), '../templates/', 'template.bat')
-configPath   = os.path.join(os.path.dirname(__file__), '../', 'config.ini')
-helpFilePath = os.path.join(os.path.dirname(__file__), '../', 'docs/')
+template_path = os.path.join(os.path.dirname(__file__), '../templates/', 'template.bat')
+config_path   = os.path.join(os.path.dirname(__file__), '../', 'config.ini')
+helpfile_path = os.path.join(os.path.dirname(__file__), '../', 'docs/')
 
 config = configparser.ConfigParser()
-config.read(configPath)
+config.read(config_path)
 
 # ================================
 # Commands and helper functions
@@ -19,45 +19,45 @@ config.read(configPath)
 
 def cmd_do(args):
     # Extract paths
-    targetPath   = os.path.abspath(args.targetPath)
-    targetFolder = os.path.dirname(targetPath)
-    destFolder   = os.path.abspath(args.destFolder)
+    target_path   = os.path.abspath(args.target_path)
+    target_folder = os.path.dirname(target_path)
+    dest_folder   = os.path.abspath(args.dest_folder)
 
     # Extract file name and extension
-    (filename, filetype) = os.path.splitext(os.path.basename(targetPath))
+    (filename, filetype) = os.path.splitext(os.path.basename(target_path))
     filename = args.filename or filename
 
     # If passed file named 'foo' that doesn't exist, prompt to
     # select the appropriate file (ex: foo.exe, foo.bat, ...)
-    if os.path.exists(targetFolder) and not os.path.exists(targetPath):
-        result = chooseFile(targetFolder, filename, filetype)
+    if os.path.exists(target_folder) and not os.path.exists(target_path):
+        result = choose_file(target_folder, filename, filetype)
         if result is None:
             sys.exit('Selection cancelled.')
         else:
             (filename, filetype) = result
-            targetPath = os.path.join(targetFolder, filename + filetype)
+            target_path = os.path.join(target_folder, filename + filetype)
 
-    if not os.path.exists(targetPath):
-        sys.exit('ERROR: The target file could not be found at ' + targetPath)
-    if not os.path.isfile(targetPath):
+    if not os.path.exists(target_path):
+        sys.exit('ERROR: The target file could not be found at ' + target_path)
+    if not os.path.isfile(target_path):
         sys.exit('ERROR: The target path does not point to a file.')
-    if not os.path.exists(destFolder):
+    if not os.path.exists(dest_folder):
         sys.exit('ERROR: The destination folder could not be found.')
-    if not os.path.isdir(destFolder):
+    if not os.path.isdir(dest_folder):
         sys.exit('ERROR: The destination path does not point to a folder.')
 
     # Build destination path. Change the extension to match the template.
-    destPath = os.path.join(destFolder, filename) + os.path.splitext(templatePath)[1]
+    dest_path = os.path.join(dest_folder, filename) + os.path.splitext(template_path)[1]
 
     # Determine correct interpreter
-    defaultInterpreter = config.get('INTERPRETER', filetype, fallback=None)
+    default_interpreter = config.get('INTERPRETER', filetype, fallback=None)
 
     if args.interpreter == True:
         interpreter = config.get('INTERPRETER', filetype, fallback=None)
     elif args.interpreter:
         interpreter = args.interpreter
-    elif defaultInterpreter:               # implicitly "and not args.interpreter"
-        interpreter = defaultInterpreter
+    elif default_interpreter:               # implicitly "and not args.interpreter"
+        interpreter = default_interpreter
     else:
         interpreter = ''
 
@@ -67,75 +67,75 @@ def cmd_do(args):
         sys.exit('ERROR: Interpreter "' + interpreter + '" could not be found.')
 
     # Read in template file and fill target path and interpreter
-    with open(templatePath, 'r') as f:
+    with open(template_path, 'r') as f:
         template = f.read()
-        template = template.replace('<DIRECTORY>', targetPath)
+        template = template.replace('<DIRECTORY>', target_path)
         template = template.replace('<INTERPRETER> ', interpreter + (' ' if interpreter else ''))
 
     # Check if a file exists at the place we want to save to, and
     # prompt user for confirmation if so.
-    writeDestination = True
-    if os.path.isfile(destPath):
-        message = "File '" + os.path.basename(destPath) + "' already exists at '" + destFolder + "'. Overwrite? [y/n]"
+    write_destination = True
+    if os.path.isfile(dest_path):
+        message = "File '" + os.path.basename(dest_path) + "' already exists at '" + dest_folder + "'. Overwrite? [y/n]"
 
         choices = {
             ('y', 'yes'): True,
             ('n', 'no'): False
         }
 
-        writeDestination = utils.prompt(message, choices, {'case_insensitive': True})
+        write_destination = utils.prompt(message, choices, {'case_insensitive': True})
 
     # Write resulting file to the destination folder
-    if writeDestination:
-        with open(destPath, 'w') as f:
+    if write_destination:
+        with open(dest_path, 'w') as f:
             f.write(template)
 
     # Save requested options
-    if args.save and writeDestination:
-        saveOpts  = {'interpreter': False, 'destination': False}
+    if args.save and write_destination:
+        save_opts  = {'interpreter': False, 'destination': False}
         args.save = args.save.replace('interpreter', 'i')
         args.save = args.save.replace('destination', 'd')
 
-        if 'i' in args.save and interpreter != defaultInterpreter:
-            saveOpts['interpreter'] = True
+        if 'i' in args.save and interpreter != default_interpreter:
+            save_opts['interpreter'] = True
 
-        if 'd' in args.save and args.destFolder != defaultDest:
-            saveOpts['destination'] = True
+        if 'd' in args.save and args.dest_folder != default_dest:
+            save_opts['destination'] = True
 
-        if saveOpts['interpreter']:
+        if save_opts['interpreter']:
             config.set('INTERPRETER', filetype, interpreter)
 
-        if saveOpts['destination']:
-            config.set('GENERAL', 'DefaultDestination', args.destFolder)
+        if save_opts['destination']:
+            config.set('GENERAL', 'DefaultDestination', args.dest_folder)
 
-        if saveOpts['interpreter'] or saveOpts['destination']:
+        if save_opts['interpreter'] or save_opts['destination']:
             with open('config.ini', 'w') as f:
                 config.write(f)
 
     # Output results
-    if writeDestination:
+    if write_destination:
         print('Pathification success!')
     else:
         print('Pathification cancelled.')
 
-    print('  Target:      ' + targetPath)
-    print('  Destination: ' + destPath)
+    print('  Target:      ' + target_path)
+    print('  Destination: ' + dest_path)
 
 def cmd_undo(args):
     print('Command "undo" is not yet implemented.')
     sys.exit()
 
 def cmd_config(args):
-    if args.printConfig:
-        with open(configPath, 'r') as f:
+    if args.print_config:
+        with open(config_path, 'r') as f:
             print('\nconfig.ini:\n')
             print('  ' + f.read().replace('\n', '\n  '))
             sys.exit()
 
-    targetOption = args.setOption or [args.unsetOption]
+    target_option = args.set_option or [args.unset_option]
 
     # Parse "section[option]" format
-    m = re.match(r"(\w+)(?:\[(.+?)\])?", targetOption[0])
+    m = re.match(r"(\w+)(?:\[(.+?)\])?", target_option[0])
     (section, option) = m.group(1, 2)
 
     # If only one match was made, assume that it was
@@ -151,13 +151,13 @@ def cmd_config(args):
     if section == 'INTERPRETER' and option and option[0] != '.':
         option = '.' + option
 
-    if args.unsetOption:
+    if args.unset_option:
         if config.has_option(section, option):
             config.remove_option(section, option)
         else:
             sys.exit('ERROR: Option "' + option + '" does not exist.')
     else:
-        value = targetOption[1]
+        value = target_option[1]
 
         if not option:
             sys.exit('ERROR: Invalid option passed.')
@@ -170,7 +170,7 @@ def cmd_config(args):
     with open('config.ini', 'w') as f:
         config.write(f)
 
-    if args.setOption:
+    if args.set_option:
         print('Option set succesfully.')
     else:
         print('Option cleared successfully.')
@@ -178,29 +178,29 @@ def cmd_config(args):
     sys.exit()
 
 def cmd_help(args=None):
-    if args is None or args.helpFile is None:
-        helpFile = os.path.join(helpFilePath, 'general.txt')
-    elif args.helpFile in ['do', 'undo', 'config', 'help']:
-        helpFile = os.path.join(helpFilePath, args.helpFile + '.txt')
+    if args is None or args.helpfile is None:
+        helpfile = os.path.join(helpfile_path, 'general.txt')
+    elif args.helpfile in ['do', 'undo', 'config', 'help']:
+        helpfile = os.path.join(helpfile_path, args.helpfile + '.txt')
     else:
-        sys.exit('Sorry, no help available for "' + args.helpFile + '".')
+        sys.exit('Sorry, no help available for "' + args.helpfile + '".')
 
-    with open(helpFile, 'r') as f:
+    with open(helpfile, 'r') as f:
         print('\n' + f.read())
 
     sys.exit()
 
-def chooseFile(targetFolder, filename, filetype):
-    files = os.listdir(targetFolder)
-    magicPrompt = config.getboolean('GENERAL', 'MagicPrompt', fallback=False)
+def choose_file(target_folder, filename, filetype):
+    files = os.listdir(target_folder)
+    magic_prompt = config.getboolean('GENERAL', 'MagicPrompt', fallback=False)
 
     for i, elem in enumerate(files):
         files[i] = os.path.splitext(elem)
 
     # Get all files whose base name is the same as the target. If
-    # magicPrompt is true then the comparison will only be case-sensitive
+    # magic_prompt is true then the comparison will only be case-sensitive
     # if the filename contains an uppercase character.
-    if (magicPrompt and filename.lower() != filename):
+    if (magic_prompt and filename.lower() != filename):
         suggestions = [elem[0] + elem[1] for elem in files if elem[0] == filename]
     else:
         suggestions = [elem[0] + elem[1] for elem in files if elem[0].lower() == filename.lower()]
@@ -243,7 +243,7 @@ if not config.has_section('INTERPRETER'):
 if not config.get('GENERAL', 'MagicPrompt', fallback=None):
     config.set('GENERAL', 'MagicPrompt', 'true')
 
-defaultDest = config.get('GENERAL', 'DefaultDestination', fallback=None)
+default_dest = config.get('GENERAL', 'DefaultDestination', fallback=None)
 
 # ================================
 # Set up parser
@@ -258,32 +258,32 @@ class MinimalFormatter(HelpFormatter):
         return ''
 
 # The config sub-command
-configParser = subparsers.add_parser('config', add_help=False, formatter_class=MinimalFormatter)
-configGroup = configParser.add_mutually_exclusive_group(required=True)
-configGroup.add_argument('--set', dest='setOption', nargs=2, const=None)
-configGroup.add_argument('--unset', dest='unsetOption', const=None)
-configGroup.add_argument('--print', dest='printConfig', action='store_true')
-configParser.set_defaults(func=cmd_config)
+config_parser = subparsers.add_parser('config', add_help=False, formatter_class=MinimalFormatter)
+config_group = config_parser.add_mutually_exclusive_group(required=True)
+config_group.add_argument('--set', dest='set_option', nargs=2, const=None)
+config_group.add_argument('--unset', dest='unset_option', const=None)
+config_group.add_argument('--print', dest='print_config', action='store_true')
+config_parser.set_defaults(func=cmd_config)
 
 # The do command
-doParser = subparsers.add_parser('do', add_help=False, formatter_class=MinimalFormatter)
-doParser.add_argument('targetPath', type=str)
-doParser.add_argument('-d', '--destination', dest='destFolder', type=str, required=(defaultDest is None),
-        default=defaultDest)
-doParser.add_argument('-n', '--name', dest='filename', type=str)
-doParser.add_argument('-i', '--interpreter', dest='interpreter', nargs='?', default=False, const=True)
-doParser.add_argument('-s', '--save', dest='save', type=str, nargs='?', const='id',
+do_parser = subparsers.add_parser('do', add_help=False, formatter_class=MinimalFormatter)
+do_parser.add_argument('target_path', type=str)
+do_parser.add_argument('-d', '--destination', dest='dest_folder', type=str, required=(default_dest is None),
+        default=default_dest)
+do_parser.add_argument('-n', '--name', dest='filename', type=str)
+do_parser.add_argument('-i', '--interpreter', dest='interpreter', nargs='?', default=False, const=True)
+do_parser.add_argument('-s', '--save', dest='save', type=str, nargs='?', const='id',
         choices=['i', 'd', 'id', 'di', 'interpreter', 'destination'])
-doParser.set_defaults(func=cmd_do)
+do_parser.set_defaults(func=cmd_do)
 
 # The undo command (to be implemented)
-undoParser = subparsers.add_parser('undo', add_help=False, formatter_class=MinimalFormatter)
-undoParser.set_defaults(func=cmd_undo)
+undo_parser = subparsers.add_parser('undo', add_help=False, formatter_class=MinimalFormatter)
+undo_parser.set_defaults(func=cmd_undo)
 
 # The help command
-helpParser = subparsers.add_parser('help', add_help=False, formatter_class=MinimalFormatter)
-helpParser.add_argument('helpFile', type=str, nargs='?')
-helpParser.set_defaults(func=cmd_help)
+help_parser = subparsers.add_parser('help', add_help=False, formatter_class=MinimalFormatter)
+help_parser.add_argument('helpfile', type=str, nargs='?')
+help_parser.set_defaults(func=cmd_help)
 
 # ================================
 # Run pathify
