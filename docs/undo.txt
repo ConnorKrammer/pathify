@@ -16,4 +16,3 @@ Options:
   The path to the folder containing the file to unpathify. Defaults
   to the config setting GENERAL[DefaultDestination] if the
   --destination flag is not passed.
-

@@ -20,9 +20,11 @@ Options:
   or just `option` with the section assumed to be `general`. Option
   names are case-insensitive. Currently the available options are:
   Currently the available options are:
-  => general[defaultdestination]: the default destination path
-  => interpreter[<filetype>]: the default interpreter for the
-     given filetype
+  => GENERAL[defaultdestination]: The default destination path.
+  => GENERAL[searchfolders]: A comma-delineated list of directories
+       to search for pathified files in when updating the recordfile.
+  => INTERPRETER[<filetype>]: The default interpreter for the
+       given filetype.
 
   <value>
   A value to be assigned to an option.

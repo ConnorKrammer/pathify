@@ -5,5 +5,6 @@ Usage:
    pathify do <target> [-d] [-n] [-i] [-s]
    pathify undo <filename> [-d]
    pathify config [--set <option> <value>] | [--unset <option>]
+   pathify record [--update] [--ls]
 
 Run `pathify help <command>` for help about a specific command.
