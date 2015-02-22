@@ -5,6 +5,7 @@ import configparser, os, sys, utils, re, json, copy
 # Global variables
 # ================================
 
+# TODO: Make this work properly cross-platform
 template_filetype = '.bat'
 template_filetypes = ['.bat', '.sh']
 template_replace_string = {
