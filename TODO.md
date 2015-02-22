@@ -1,23 +1,16 @@
-# Todo
+Todo
+====
 
 1. Make templates for the different shell scripting languages (bash, ...)
    so that pathify can produce scripts that work in any shell. This should
    auto-detect the shell but be able to be overridden with a configuration
    option.
-2. Implement the `undo` command.
-3. Ensure consistency for entering wrong command (print help).
-4. Prettify the output when using a command incorrectly (override the
-   formatter).
-5. Write code documentation.
-6. Print output if a tracked directory or the default directory isn't in the
+2. Write code documentation.
+3. Print output if a tracked directory or the default directory isn't in the
    user's PATH. Allow appending them automatically.
     - use os.environ['PATH'].append('something')
-7. Change some occurrences of 'destination' to be more semantically
+4. Change some occurrences of 'destination' to be more semantically
    correct; right now it doesn't always make sense.
-8. Structure update loop so that fetching records is always up to date
+5. Structure update loop so that fetching records is always up to date
+6. Refactoring, unit tests
 
-
-
-
-
-# TODO: refactor, unit tests!
