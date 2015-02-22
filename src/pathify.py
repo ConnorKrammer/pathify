@@ -15,7 +15,7 @@ template_replace_string = {
 # Get the paths of important files
 template_path   = os.path.join(os.path.dirname(__file__), '..', 'templates', 'template' + template_filetype)
 config_path     = os.path.join(os.path.dirname(__file__), '..', 'config.ini')
-helpfile_path   = os.path.join(os.path.dirname(__file__), '..', 'docs')
+helpfile_path   = os.path.join(os.path.dirname(__file__), '..', 'help')
 recordfile_path = os.path.join(os.path.dirname(__file__), '..', 'records.json')
 
 config = configparser.ConfigParser()
