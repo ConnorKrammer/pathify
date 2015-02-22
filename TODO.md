@@ -9,3 +9,15 @@
 4. Prettify the output when using a command incorrectly (override the
    formatter).
 5. Write code documentation.
+6. Print output if a tracked directory or the default directory isn't in the
+   user's PATH. Allow appending them automatically.
+    - use os.environ['PATH'].append('something')
+7. Change some occurrences of 'destination' to be more semantically
+   correct; right now it doesn't always make sense.
+8. Structure update loop so that fetching records is always up to date
+
+
+
+
+
+# TODO: refactor, unit tests!

@@ -1,5 +1,5 @@
 from argparse import ArgumentParser, HelpFormatter
-import configparser, os, sys, utils, re, json, copy, difflib
+import configparser, os, sys, utils, re, json, copy
 
 # ================================
 # Global variables
@@ -13,9 +13,9 @@ template_replace_string = {
 }
 
 # Get the paths of important files
-template_path   = os.path.join(os.path.dirname(__file__), '..', 'templates/', 'template' + template_filetype) # todo exclude '/'
+template_path   = os.path.join(os.path.dirname(__file__), '..', 'templates', 'template' + template_filetype)
 config_path     = os.path.join(os.path.dirname(__file__), '..', 'config.ini')
-helpfile_path   = os.path.join(os.path.dirname(__file__), '..', 'docs/')
+helpfile_path   = os.path.join(os.path.dirname(__file__), '..', 'docs')
 recordfile_path = os.path.join(os.path.dirname(__file__), '..', 'records.json')
 
 config = configparser.ConfigParser()
@@ -36,6 +36,11 @@ if not config.get('GENERAL', 'MagicPrompt', fallback=None):
 
 default_dest = config.get('GENERAL', 'DefaultDestination', fallback=None)
 
+allowed_config = {
+    'GENERAL': ['defaultdestination', 'searchfolders' ,'magicprompt'],
+    'INTERPRETER': []
+}
+
 # ================================
 # Make sure that records.txt exists
 # ================================
@@ -49,33 +54,29 @@ if not os.path.exists(recordfile_path):
 # ================================
 
 def cmd_do(args):
-    # Extract paths
-    target_path   = os.path.abspath(args.target_path)
-    target_folder = os.path.dirname(target_path)
-    dest_folder   = os.path.abspath(args.dest_folder)
+    target_path = os.path.abspath(args.target_path)
+    dest_folder = os.path.abspath(args.dest_folder)
+    filename = filetype = ''
 
-    # Extract file name and extension
-    (filename, filetype) = os.path.splitext(os.path.basename(target_path))
-    filename = args.filename or filename
-
-    # If passed file named 'foo' that doesn't exist, prompt to
-    # select the appropriate file (ex: foo.exe, foo.bat, ...)
-    if os.path.exists(target_folder) and not os.path.exists(target_path):
-        result = choose_file(target_folder, filename, filetype)
-        if result is None:
-            sys.exit('Selection cancelled.')
-        else:
-            (filename, filetype) = result
-            target_path = os.path.join(target_folder, filename + filetype)
-
-    if not os.path.exists(target_path):
-        sys.exit('ERROR: The target file could not be found at ' + target_path)
-    if not os.path.isfile(target_path):
-        sys.exit('ERROR: The target path does not point to a file.')
     if not os.path.exists(dest_folder):
         sys.exit('ERROR: The destination folder could not be found.')
     if not os.path.isdir(dest_folder):
         sys.exit('ERROR: The destination path does not point to a folder.')
+
+    if not os.path.isdir(target_path):
+        if os.path.isdir(os.path.dirname(target_path)):
+            (filename, filetype) = os.path.splitext(os.path.basename(target_path))
+            target_path = os.path.dirname(target_path)
+        else:
+            sys.exit("ERROR: Target path doesn't exist!")
+
+    result = choose_file(target_path, filename + filetype)
+
+    if result is None:
+        sys.exit('Selection cancelled.')
+
+    (target_path, filename, filetype) = result
+    target_path = os.path.join(target_path, filename + filetype)
 
     # Build destination path. Change the extension to match the template.
     dest_path = os.path.join(dest_folder, filename + template_filetype)
@@ -107,7 +108,6 @@ def cmd_do(args):
     write_destination = True
     if os.path.isfile(dest_path):
         message = "File '" + os.path.basename(dest_path) + "' already exists at '" + dest_folder + "'. Overwrite? [y/n]"
-
         choices = {
             ('y', 'yes'): True,
             ('n', 'no'): False
@@ -154,7 +154,39 @@ def cmd_do(args):
     print('  Destination: ' + dest_path)
 
 def cmd_undo(args):
-    print('Command "undo" is not yet implemented.')
+    files = flatten_record(get_record())
+    files = [os.path.join(elem['destination'], elem['filename']) for elem in files]
+
+    (filename, filetype) = os.path.splitext(args.filename)
+    choice = choose_file(args.destination, filename, filetype, files)
+
+    if choice is None:
+        print('Selection cancelled.')
+        return
+    elif choice is False:
+        print('Target not found. Run `pathify record` to see possible choices for `undo`.')
+        return
+
+    (path, filename, filetype) = choice
+    path = os.path.join(path, filename + filetype)
+
+    message = 'Confirm deletion of ' + path + ': [y/n]'
+    choices = {
+        ('y', 'yes'): True,
+        ('n', 'no'): False
+    }
+
+    delete_file = utils.prompt(message, choices, {'case_insensitive': True})
+
+    if delete_file and os.path.isfile(path):
+        os.remove(path)
+        delete_record(filename + filetype, os.path.dirname(path))
+        print('File unpathified successfully.')
+    elif delete_file:
+        # This shouldn't happen.
+        print('ERROR: File not found. Try debugging the program.')
+    else:
+        print('Operation cancelled.')
 
 def cmd_record(args):
     if args.update:
@@ -165,7 +197,10 @@ def cmd_record(args):
     else:
         cmd_record_ls(args)
 
-def cmd_record_update(args):
+# args is a dummy variable so that all command functions have the
+# same argument signature. Pass it when possible anyway, since it
+# may be used later.
+def cmd_record_update(args=None):
     (added, deleted) = update_record()
 
     add_plural = 'item' if added['count'] == 1 else 'items'
@@ -227,6 +262,7 @@ def cmd_record_ls(args, added = {'count': 0, 'list': []}, deleted = {'count': 0,
 
         print(file_list)
 
+# TODO: option-specific sanitization (especially for paths in the searchfolders option)
 def cmd_config(args):
     if args.print_config or (not args.set_option and not args.unset_option):
         with open(config_path, 'r') as f:
@@ -246,12 +282,27 @@ def cmd_config(args):
         (section, option) = ('GENERAL', section)
 
     section = section.upper()
+    option = option.lower()
 
-    if not config.has_section(section):
-        sys.exit('ERROR: Unsupported section "' + section + '" passed.')
-
-    if section == 'INTERPRETER' and option and option[0] != '.':
-        option = '.' + option
+    # This would have been WAY shorter to hardcode. Eh.
+    if section not in allowed_config.keys():
+        sections = list(allowed_config.keys())
+        message  = 'ERROR: Attempted to modify unsupported section "' + section + '". '
+        message += 'Valid sections are '
+        message += '"' + '", "'.join(sections[0:-1]) + '"'
+        if len(sections) > 1:
+            message += ' and "' + sections[-1]
+        message += '".'
+        sys.exit(message)
+    if section == 'GENERAL' and option not in allowed_config['GENERAL']:
+        options = list(allowed_config['GENERAL'])
+        message  = 'ERROR: Attempted to set unsupported option "GENERAL[' + option + ']". '
+        message += 'Valid options are '
+        message += '"' + '", "'.join(options[0:-1]) + '"'
+        if len(options) > 1:
+            message += ' and "' + options[-1]
+        message += '".'
+        sys.exit(message)
 
     if args.unset_option:
         if config.has_option(section, option):
@@ -261,10 +312,32 @@ def cmd_config(args):
     else:
         value = target_option[1]
 
-        if not option:
-            sys.exit('ERROR: Invalid option passed.')
-        if option and section == 'INTERPRETER' and utils.which(value) is None:
-            sys.exit('ERROR: Interpreter "' + value + '" could not be found.')
+        # Sanitization
+        if section == 'GENERAL':
+            if option in ['defaultdestination', 'searchfolders']:
+                folders = value.split(',')
+
+                for i, folder in enumerate(folders):
+                    if not os.path.isabs(folder):
+                        sys.exit('ERROR: Specified path "' + folder + '" is not an absolute reference.')
+                    if not os.path.exists(folder):
+                        sys.exit('ERROR: Specified path "' + folder + '" does not exist.')
+
+                    folders[i] = os.path.abspath(folder)
+
+                value = ','.join(folders)
+
+                # TODO: check if folder is in system PATH and prompt to add it
+            elif option == 'magicprompt':
+                if value.lower() not in ['true', 'false']:
+                    sys.exit("ERROR: Disallowed value. GENERAL[magicprompt] must be 'true' or 'false'.")
+                value = value.lower()
+        elif section == 'INTERPRETER':
+            if option[0] != '.':
+                option = '.' + option
+
+            if not utils.which(value):
+                sys.exit('ERROR: Interpreter "' + value + '" could not be found.')
 
         config.set(section, option, value)
 
@@ -290,8 +363,12 @@ def cmd_help(args=None):
 
     sys.exit()
 
-def choose_file(target_folder, filename, filetype):
-    files = os.listdir(target_folder)
+def choose_file(target_folder, filename='', filetype='', files=[]):
+    files = files or next(os.walk(target_folder))[2] # get list of files, no directories
+
+    if len(files) == 0:
+        return False
+
     magic_prompt = config.getboolean('GENERAL', 'MagicPrompt', fallback=False)
 
     for i, elem in enumerate(files):
@@ -300,24 +377,50 @@ def choose_file(target_folder, filename, filetype):
     # Get all files whose base name is the same as the target. If
     # magic_prompt is true then the comparison will only be case-sensitive
     # if the filename contains an uppercase character.
-    if (magic_prompt and filename.lower() != filename):
-        suggestions = [elem[0] + elem[1] for elem in files if elem[0] == filename]
+    if filename and magic_prompt and filename.lower() != filename:
+        suggestions = [elem[0] + elem[1] for elem in files if os.path.basename(elem[0]) == filename]
+    elif filename:
+        suggestions = [elem[0] + elem[1] for elem in files if os.path.basename(elem[0]).lower() == filename.lower()]
     else:
-        suggestions = [elem[0] + elem[1] for elem in files if elem[0].lower() == filename.lower()]
+        suggestions = [elem[0] + elem[1] for elem in files]
 
     if len(suggestions) == 1:
-        result = suggestions[0]
+        print("Take note of this, Connor:", suggestions)
+        (filename, filetype) = os.path.splitext(suggestions[0])
+        result = (target_folder, filename, filetype)
     elif suggestions:
         if not filetype:
-            message = 'Which ' + filename + ' do you want to pathify?'
+            message = 'Which ' + (filename or 'file') + ' do you want to select?'
         else:
             message = filename + filetype + ' not found. Did you mean:'
 
-        options = {}
+        path_dict = {}
 
-        for i, suggestion in enumerate(suggestions):
-            message += '\n' + str(i + 1) + ' ' + suggestion
-            options[str(i + 1)] = suggestion
+        # Order suggestions by parent folder
+        for path in suggestions:
+            dirname = os.path.dirname(path)
+            filename = os.path.basename(path)
+
+            if not dirname:
+                dirname = target_folder
+
+            if dirname not in path_dict.keys():
+                path_dict[dirname] = []
+
+            path_dict[dirname].append(filename)
+
+        # Build the prompt message
+        counter = 0
+        options = {}
+        for key, value in sorted(path_dict.items()):
+            message += '\n\n' + key + ':'
+
+            for path in sorted(value):
+                counter += 1
+                message += '\n  ' + str(counter) + ':  ' + path
+
+                (filename, filetype) = os.path.splitext(path)
+                options[str(counter)] = (key, filename, filetype)
 
         # Prompt user, catching keyboard interrupt
         try:
@@ -325,10 +428,11 @@ def choose_file(target_folder, filename, filetype):
         except KeyboardInterrupt:
             return None
     else:
-        result = filename + filetype
+        # There are no matches
+        return False
 
-    # Return new file information as (filename, filetype)
-    return os.path.splitext(result)
+    # Return new file information as (directory, filename, filetype)
+    return result
 
 def delete_record(filename, destination):
     records = get_record()
@@ -341,11 +445,38 @@ def delete_record(filename, destination):
 
     write_record(records)
 
-def get_record():
+def get_record(filename=None, source=None, destination=None):
     with open(recordfile_path, 'r') as f:
         records = json.load(f)
 
+    if records:
+        if destination:
+            records = {k:v for (k, v) in records.items() if k == destination}
+
+        for key, value in records.items():
+            if filename:
+                # anchor
+                records[key] = {k:v for (k, v) in value.items() if k == filename}
+
+            if source:
+                records[key] = {k:v for (k, v) in value.items() if v == source}
+
+        records = {k:v for (k, v) in records.items() if len(v)}
+
     return records
+
+def flatten_record(records):
+    flat_record = []
+
+    for destination, contents in records.items():
+        for filename, source in contents.items():
+            flat_record.append({
+                'destination': destination,
+                'filename': filename,
+                'source': source
+            })
+
+    return flat_record
 
 def add_record_entry(filename, source, destination):
     records = get_record()
@@ -365,14 +496,20 @@ def update_record():
     record_copy = copy.deepcopy(records)
 
     # Get a list of folders to track based on config settings.
-    search_folders = config.get('GENERAL', 'SearchFolders', fallback='')
-    search_folders = search_folders.replace('\n', '').split(',')
-    search_folders.append(default_dest)
+    search_folders = config.get('GENERAL', 'SearchFolders', fallback=None)
 
-    # Include tracked folders in the search.
-    for folder in search_folders:
-        if folder not in record_copy.keys():
-            record_copy[folder] = {}
+    if search_folders:
+        search_folders = search_folders.replace('\n', '').split(',')
+        search_folders.append(default_dest)
+
+        # Include tracked folders in the search.
+        for folder in search_folders:
+            # TODO: when option sanitization is implemented, remove this
+            if folder[-1] in ['/', '\\']:
+                folder = folder[0:-1]
+
+            if folder not in record_copy.keys():
+                record_copy[folder] = {}
 
     record_copy_keys = list(record_copy.keys())
 
@@ -446,6 +583,24 @@ def get_template_watermark(filetype):
 
     return leader + ' This file generated by pathify.py\n\n'
 
+# Compare paths by components
+# Should return a valid path, assuming input is valid
+# Algorithm via http://stackoverflow.com/a/21499676
+def commonprefix(path_list):
+    common_prefix = []
+    split_paths   = [path.split(os.path.sep) for path in path_list]
+    shortest_path = min(len(path) for path in split_paths)
+
+    for i in range(shortest_path):
+        # If components are the same, length of set should == 1.
+        s = set(path[i] for path in split_paths)
+        if len(s) != 1:
+            break
+
+        common_prefix.append(s.pop())
+
+    return os.path.sep.join(common_prefix)
+
 # ================================
 # Set up parser
 # ================================
@@ -468,7 +623,7 @@ config_parser.set_defaults(func=cmd_config)
 
 # The do command
 do_parser = subparsers.add_parser('do', add_help=False, formatter_class=MinimalFormatter)
-do_parser.add_argument('target_path', type=str)
+do_parser.add_argument('target_path', nargs='?', default='./', type=str)
 do_parser.add_argument('-d', '--destination', dest='dest_folder', type=str, required=(default_dest is None),
         default=default_dest)
 do_parser.add_argument('-n', '--name', dest='filename', type=str)
@@ -477,8 +632,11 @@ do_parser.add_argument('-s', '--save', dest='save', type=str, nargs='?', const='
         choices=['i', 'd', 'id', 'di', 'interpreter', 'destination'])
 do_parser.set_defaults(func=cmd_do)
 
-# The undo command (to be implemented)
+# The undo command
 undo_parser = subparsers.add_parser('undo', add_help=False, formatter_class=MinimalFormatter)
+undo_parser.add_argument('filename', nargs='?', default='', type=str)
+undo_parser.add_argument('-d', '--destination', dest='destination', type=str, required=(default_dest is None),
+        default=default_dest)
 undo_parser.set_defaults(func=cmd_undo)
 
 # The record command
