@@ -21,6 +21,8 @@ recordfile_path = os.path.join(os.path.dirname(__file__), '..', 'records.json')
 config = configparser.ConfigParser()
 config.read(config_path)
 
+filesystem_case_sensitive = utils.is_case_sensitive_filesystem()
+
 # ================================
 # Manage configuration defaults
 # ================================
@@ -70,10 +72,14 @@ def cmd_do(args):
         else:
             sys.exit("ERROR: Target path doesn't exist!")
 
-    result = choose_file(target_path, filename + filetype)
+    result = choose_file(target_path, filename, filetype)
 
     if result is None:
-        sys.exit('Selection cancelled.')
+        print('Selection cancelled.')
+        return
+    elif result is False:
+        print('Target not found. Run `pathify record` to see possible choices for `undo`.')
+        return
 
     (target_path, filename, filetype) = result
     target_path = os.path.join(target_path, filename + filetype)
@@ -111,6 +117,7 @@ def cmd_do(args):
         choices = {
             ('y', 'yes'): True,
             ('n', 'no'): False
+            # TODO: add a 'r' option to rename the destination file
         }
 
         write_destination = utils.prompt(message, choices, {'case_insensitive': True})
@@ -189,33 +196,45 @@ def cmd_undo(args):
         print('Operation cancelled.')
 
 def cmd_record(args):
-    if args.update:
-        (added, deleted) = cmd_record_update(args)
-
-        if args.ls:
-            cmd_record_ls(args, added, deleted)
-    else:
-        cmd_record_ls(args)
+    (added, deleted, expired) = cmd_record_update(args)
+    cmd_record_ls(args, added, deleted, expired)
 
 # args is a dummy variable so that all command functions have the
 # same argument signature. Pass it when possible anyway, since it
 # may be used later.
 def cmd_record_update(args=None):
     (added, deleted) = update_record()
+    expired = get_expired_files()
 
-    add_plural = 'item' if added['count'] == 1 else 'items'
-    delete_plural = 'item' if deleted['count'] == 1 else 'items'
+    message = 'Records are up to date.'
 
-    message = 'Records updated. '
-    message += str(added['count']) + ' ' + add_plural + ' added, '
-    message += str(deleted['count']) + ' ' + delete_plural + ' removed.'
+    if added['count']:
+        added_plural = 'item was' if added['count'] == 1 else 'items were'
+        message += '\n  ' + str(added['count']) + ' ' + added_plural + ' added [+]'
+
+    if deleted['count']:
+        deleted_plural = 'item was' if deleted['count'] == 1 else 'items were'
+        message += '\n  ' + str(deleted['count']) + ' ' + deleted_plural + ' removed [-]'
+
+    if expired['count']:
+        expired_plural = 'item is' if expired['count'] == 1 else 'items are'
+        message += '\n  ' + str(expired['count']) + ' ' + expired_plural + ' invalid [!]\n\n'
+        message += 'To fix an invalid file, either replace its target executable\n'
+        message += 'or re-pathify it with a valid target.'
 
     print(message)
 
-    return (added, deleted)
+    return (added, deleted, expired)
 
-def cmd_record_ls(args, added = {'count': 0, 'list': []}, deleted = {'count': 0, 'list': []}):
+def cmd_record_ls(args, added=None, deleted=None, expired=None):
     records = get_record()
+
+    if not added:
+        added = {'count': 0, 'list': []}
+    if not deleted:
+        deleted = {'count': 0, 'list': []}
+    if not expired:
+        expired = {'count': 0, 'list': []}
 
     if len(records.keys()) == 0:
         print('Record is empty.')
@@ -236,6 +255,7 @@ def cmd_record_ls(args, added = {'count': 0, 'list': []}, deleted = {'count': 0,
         # Get the files that were added or deleted from the current dest folder.
         added_files   = [(i['filename'], i['source']) for i in added['list'] if i['destination'] == destination]
         deleted_files = [(i['filename'], i['source']) for i in deleted['list'] if i['destination'] == destination]
+        expired_files = [(i['filename'], i['source']) for i in expired['list'] if i['destination'] == destination]
 
         # This bit of shenanigans is to get the dictionary key-value pairs
         # AND the deleted files into the same data structure so we can see what
@@ -247,14 +267,16 @@ def cmd_record_ls(args, added = {'count': 0, 'list': []}, deleted = {'count': 0,
 
         # Format things nicely. " status filename  => source"
         column_width = len(max(values.keys(), key=len))
-        format_string = ' {0:1} {1:' + str(column_width) + '}  => {2}\n'
+        format_string = ' {0:3} {1:' + str(column_width) + '}  => {2}\n'
 
         # Iterate over everything and build a nice output string.
         for filename, source in sorted(values.items()):
             if (filename, source) in added_files:
-                status = '+'
+                status = '[+]'
             elif (filename, source) in deleted_files:
-                status = '-'
+                status = '[-]'
+            elif (filename, source) in expired_files:
+                status = '[!]'
             else:
                 status = ''
 
@@ -262,7 +284,6 @@ def cmd_record_ls(args, added = {'count': 0, 'list': []}, deleted = {'count': 0,
 
         print(file_list)
 
-# TODO: option-specific sanitization (especially for paths in the searchfolders option)
 def cmd_config(args):
     if args.print_config or (not args.set_option and not args.unset_option):
         with open(config_path, 'r') as f:
@@ -363,6 +384,7 @@ def cmd_help(args=None):
 
     sys.exit()
 
+# Returns the chosen file, False if no match found, or None if selection is cancelled
 def choose_file(target_folder, filename='', filetype='', files=[]):
     files = files or next(os.walk(target_folder))[2] # get list of files, no directories
 
@@ -385,7 +407,6 @@ def choose_file(target_folder, filename='', filetype='', files=[]):
         suggestions = [elem[0] + elem[1] for elem in files]
 
     if len(suggestions) == 1:
-        print("Take note of this, Connor:", suggestions)
         (filename, filetype) = os.path.splitext(suggestions[0])
         result = (target_folder, filename, filetype)
     elif suggestions:
@@ -455,7 +476,6 @@ def get_record(filename=None, source=None, destination=None):
 
         for key, value in records.items():
             if filename:
-                # anchor
                 records[key] = {k:v for (k, v) in value.items() if k == filename}
 
             if source:
@@ -484,6 +504,13 @@ def add_record_entry(filename, source, destination):
     if destination not in records.keys():
         records[destination] = {}
 
+    # Prevent separate entries if pathify is used with different
+    # cases but the same name (ex test.txt and TEST.txt)
+    if not filesystem_case_sensitive:
+        for name in copy.copy(records[destination]).keys():
+            if filename.lower() == name.lower():
+                del records[destination][name]
+
     records[destination][filename] = source
     write_record(records)
 
@@ -504,10 +531,6 @@ def update_record():
 
         # Include tracked folders in the search.
         for folder in search_folders:
-            # TODO: when option sanitization is implemented, remove this
-            if folder[-1] in ['/', '\\']:
-                folder = folder[0:-1]
-
             if folder not in record_copy.keys():
                 record_copy[folder] = {}
 
@@ -568,6 +591,20 @@ def update_record():
 
     # Return a summary of what's changed.
     return (added, deleted)
+
+def get_expired_files():
+    records = flatten_record(get_record())
+    expired = {
+        'count': 0,
+        'list': []
+    }
+
+    for record in records:
+        if not os.path.exists(record['source']):
+            expired['count'] += 1
+            expired['list'].append(record)
+
+    return expired
 
 def get_template(filetype):
     with open(template_path, 'r') as f:

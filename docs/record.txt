@@ -1,19 +1,12 @@
-record => Print or update the recordfile.
+record => Update and print the recordfile.
 
 Usage:
-  pathify record [--update] [--ls]
+  pathify record
 
-Options:
-  --ls
-  Print the list of pathified files, organized by location. By
-  default `pathify record` prints the list of pathified files,
-  but this option is required if `--update` is also passed. If
-  `--update` is passed, which files were added or removed will
-  also be shown.
-
-  --update | -u
-  Updates the recordfile by searching for added or removed files
-  in the folders specified by GENERAL[defaultdestination] and
-  GENERAL[searchfolders].
-  Using this flag will suppress the printing of the recordfile
-  unless the `--ls` flag is also passed.
+Details:
+  Prints the list of pathified files, organized by location. Will
+  also update the recordfile by searching for added or removed files
+  in the folders specified by the config options GENERAL[searchfolders]
+  and GENERAL[defaultdestination]. Files that are invalid (i.e. whose
+  target executable has been moved, renamed, or deleted) will be marked
+  as such.

@@ -1,7 +1,7 @@
 do => Pathify a file.
 
 Usage:
-  pathify do <target> [--destination <path>] [-name <name>]
+  pathify do [<target>] [--destination <path>] [-name <name>]
              [--interpreter <interpreter>] [--save <options>]
 
 Options:
@@ -30,7 +30,9 @@ Options:
   options will not be saved.
 
   <target>
-  An absolute or relative path to the file to be pathified.
+  An absolute or relative path to the file to be pathified. If passed
+  a directory, the user will be prompted to select a file from that path.
+  If left blank, will default to the current working directory.
 
   <path>
   A path to the destination folder. May include a filename, in which

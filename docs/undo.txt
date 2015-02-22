@@ -1,7 +1,7 @@
 undo => Unpathify a file.
 
 Usage:
-  pathify undo <name> [--destination <path>]
+  pathify undo [<name>] [--destination <path>]
 
 Options:
   --destination | -d
@@ -10,7 +10,8 @@ Options:
   set.
 
   <name>
-  The filename of the pathified file to remove.
+  The filename of the pathified file to remove. If left blank, the
+  user will be prompted to select which file to unpathify.
 
   <path>
   The path to the folder containing the file to unpathify. Defaults

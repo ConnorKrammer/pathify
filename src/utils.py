@@ -9,14 +9,14 @@ import stat
 import tempfile
 
 
-def _is_case_sensitive_filesystem():
+def is_case_sensitive_filesystem():
     tmphandle, tmppath = tempfile.mkstemp()
     is_insensitive = os.path.exists(tmppath.upper())
     os.close(tmphandle)
     os.remove(tmppath)
     return not is_insensitive
 
-_IS_CASE_SENSITIVE_FILESYSTEM = _is_case_sensitive_filesystem()
+_IS_CASE_SENSITIVE_FILESYSTEM = is_case_sensitive_filesystem()
 
 def which(program, case_sensitive=_IS_CASE_SENSITIVE_FILESYSTEM):
     """ Simulates unix `which` command. Returns absolute path if program found """
