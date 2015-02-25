@@ -87,7 +87,8 @@ def prompt(prompt, choices={}, options={}):
     defaultOptions = {
         'case_insensitive': False,
         'restrict_choices': True,
-        'catch_interrupt': True
+        'catch_interrupt': True,
+        'list_delimiter': None
     }
 
     # Merge passed options with defaults.
@@ -101,7 +102,7 @@ def prompt(prompt, choices={}, options={}):
 
         try:
             response = input('=> ')
-            print()
+            print() # print an empty line
         except KeyboardInterrupt:
             if options['catch_interrupt']:
                 break
@@ -125,18 +126,41 @@ def prompt(prompt, choices={}, options={}):
                 del choices[key]
                 choices[key.lower()] = value
 
-        # Parse result. If invalid and 'restrict_choices' is set, prompt again.
-        if response in choices.keys():
-            result = choices[response]
-        elif choices and options['restrict_choices']:
-            print("Response '" + response + "' is not a valid option.")
-            continue;
+        # Parse response as a list if it uses the delimiter
+        # If invalid and 'restrict_choices' is set, prompt again.
+        if options['list_delimiter'] is not None:
+            response_list = response.split(options['list_delimiter'])
+            invalid_choice = False
+            result = []
+
+            # Here we build a list of results based on the parsed response.
+            # If any of the choices are invalid, break the loop and re-prompt.
+            # This is a more complicated version of the single-argument case below.
+            for response in response_list:
+                if response in choices.keys():
+                    result.append(choices[response])
+                elif choices and options['restrict_choices']:
+                    print("Response '" + response + "' is not a valid choice.")
+                    invalid_choice = True
+                    result = None
+                    break
+                else:
+                    result.append(response)
+
+            if invalid_choice:
+                continue
         else:
-            result = response
+            if response in choices.keys():
+                result = choices[response]
+            elif choices and options['restrict_choices']:
+                print("Response '" + response + "' is not a valid choice.")
+                continue
+            else:
+                result = response
 
     # Let the user know they cancelled successfully.
     if result == None:
-        print('Input cancelled.')
+        print('Selection cancelled.')
 
     return result
 

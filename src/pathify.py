@@ -73,130 +73,139 @@ def cmd_do(args):
         else:
             sys.exit("ERROR: Target path doesn't exist!")
 
-    result = choose_file(target_path, filename, filetype)
+    choice_list = choose_file(target_path, filename, filetype)
 
-    if result is None:
+    if choice_list is None:
         print('Selection cancelled.')
         return
-    elif result is False:
+    elif choice_list is False:
         print('Target not found. Run `pathify record` to see possible choices for `undo`.')
         return
 
-    (target_path, filename, filetype) = result
-    target_path = os.path.join(target_path, filename + filetype)
+    for choice in choice_list:
+        (target_path, filename, filetype) = choice
+        target_path = os.path.join(target_path, filename + filetype)
 
-    # Build destination path. Change the extension to match the template.
-    dest_path = os.path.join(dest_folder, filename + template_filetype)
+        # Build destination path. Change the extension to match the template.
+        dest_path = os.path.join(dest_folder, filename + template_filetype)
 
-    # Determine correct interpreter
-    default_interpreter = config.get('INTERPRETER', filetype, fallback=None)
+        # Determine correct interpreter
+        default_interpreter = config.get('INTERPRETER', filetype, fallback=None)
 
-    if args.interpreter == True:
-        interpreter = config.get('INTERPRETER', filetype, fallback=None)
-    elif args.interpreter:
-        interpreter = args.interpreter
-    elif default_interpreter:               # implicitly "and not args.interpreter"
-        interpreter = default_interpreter
-    else:
-        interpreter = ''
+        if args.interpreter == True:
+            interpreter = config.get('INTERPRETER', filetype, fallback=None)
+        elif args.interpreter:
+            interpreter = args.interpreter
+        elif default_interpreter:               # implicitly "and not args.interpreter"
+            interpreter = default_interpreter
+        else:
+            interpreter = ''
 
-    if interpreter is None:
-        sys.exit('ERROR: Flag -i was passed, but no default interpreter exists for filetype "' + filetype + '".')
-    if interpreter and utils.which(interpreter) is None:
-        sys.exit('ERROR: Interpreter "' + interpreter + '" could not be found.')
+        if interpreter is None:
+            sys.exit('ERROR: Flag -i was passed, but no default interpreter exists for filetype "' + filetype + '".')
+        if interpreter and utils.which(interpreter) is None:
+            sys.exit('ERROR: Interpreter "' + interpreter + '" could not be found.')
 
-    # Read in template file and insert target path and interpreter
-    template = get_template(template_filetype)
-    template = template.replace(template_replace_string['target'], target_path)
-    template = template.replace(template_replace_string['interpreter'], interpreter + (' ' if interpreter else ''))
+        # Read in template file and insert target path and interpreter
+        template = get_template(template_filetype)
+        template = template.replace(template_replace_string['target'], target_path)
+        template = template.replace(template_replace_string['interpreter'], interpreter + (' ' if interpreter else ''))
 
-    # Check if a file exists at the place we want to save to, and
-    # prompt user for confirmation if so.
-    write_destination = True
-    if os.path.isfile(dest_path):
-        message = "File '" + os.path.basename(dest_path) + "' already exists at '" + dest_folder + "'. Overwrite? [y/n]"
-        choices = {
-            ('y', 'yes'): True,
-            ('n', 'no'): False
-            # TODO: add a 'r' option to rename the destination file
-        }
+        # Check if a file exists at the place we want to save to, and
+        # prompt user for confirmation if so.
+        write_destination = True
+        while os.path.isfile(dest_path):
+            message = "File '" + os.path.basename(dest_path) + "' already exists at '" + dest_folder + "'.\n"
+            message += 'Overwrite [y/n] or choose another name [r].'
 
-        write_destination = utils.prompt(message, choices, {'case_insensitive': True})
+            choices = {
+                ('y', 'yes'): True,
+                ('n', 'no'): False,
+                ('r', 'rename'): -1
+            }
 
-    # Write resulting file to the destination folder
-    if write_destination:
-        with open(dest_path, 'w') as f:
-            f.write(template)
+            choice = utils.prompt(message, choices, {'case_insensitive': True})
 
-        add_record_entry(filename + template_filetype, target_path, dest_folder)
+            if choice != -1:
+                write_destination = choice
+                break
+            else:
+                # TODO: Figure out why `pathify record` shows a [+] icon next to new items
+                #       only under certain circumstances, such as when using the rename option here
+                filename = utils.prompt('Enter a new name:')
+                dest_path = os.path.join(dest_folder, filename + template_filetype)
 
-    # Save requested options
-    if args.save and write_destination:
-        save_opts  = {'interpreter': False, 'destination': False}
-        args.save = args.save.replace('interpreter', 'i')
-        args.save = args.save.replace('destination', 'd')
+        # Write resulting file to the destination folder
+        if write_destination:
+            with open(dest_path, 'w') as f:
+                f.write(template)
 
-        if 'i' in args.save and interpreter != default_interpreter:
-            save_opts['interpreter'] = True
+            # add_record_entry(filename + template_filetype, target_path, dest_folder)
 
-        if 'd' in args.save and dest_folder != default_dest:
-            save_opts['destination'] = True
+            # Save requested options
+            if args.save:
+                save_opts  = {'interpreter': False, 'destination': False}
+                args.save = args.save.replace('interpreter', 'i')
+                args.save = args.save.replace('destination', 'd')
 
-        if save_opts['interpreter']:
-            config.set('INTERPRETER', filetype, interpreter)
+                if 'i' in args.save and interpreter != default_interpreter:
+                    save_opts['interpreter'] = True
 
-        if save_opts['destination']:
-            config.set('GENERAL', 'DefaultDestination', dest_folder)
+                if 'd' in args.save and dest_folder != default_dest:
+                    save_opts['destination'] = True
 
-        if save_opts['interpreter'] or save_opts['destination']:
-            with open('config.ini', 'w') as f:
-                config.write(f)
+                if save_opts['interpreter']:
+                    config.set('INTERPRETER', filetype, interpreter)
 
-    # Output results
-    if write_destination:
-        print('Pathification success!')
-    else:
-        print('Pathification cancelled.')
+                if save_opts['destination']:
+                    config.set('GENERAL', 'DefaultDestination', dest_folder)
 
-    print('  Target:      ' + target_path)
-    print('  Destination: ' + dest_path)
+                if save_opts['interpreter'] or save_opts['destination']:
+                    with open('config.ini', 'w') as f:
+                        config.write(f)
+
+    cmd_record()
 
 def cmd_undo(args):
     files = flatten_record(get_record())
     files = [os.path.join(elem['destination'], elem['filename']) for elem in files]
 
     (filename, filetype) = os.path.splitext(args.filename)
-    choice = choose_file(args.destination, filename, filetype, files)
+    choice_list = choose_file(args.destination, filename, filetype, files)
 
-    if choice is None:
+    if choice_list is None:
         print('Selection cancelled.')
         return
-    elif choice is False:
+    elif choice_list is False:
         print('Target not found. Run `pathify record` to see possible choices for `undo`.')
         return
 
-    (path, filename, filetype) = choice
-    path = os.path.join(path, filename + filetype)
-
-    message = 'Confirm deletion of ' + path + ': [y/n]'
+    message = 'Are you sure you want to delete those choices? [y/n]'
     choices = {
         ('y', 'yes'): True,
         ('n', 'no'): False
     }
 
-    delete_file = utils.prompt(message, choices, {'case_insensitive': True})
+    confirm_delete = utils.prompt(message, choices, {'case_insensitive': True})
 
-    if delete_file and os.path.isfile(path):
-        os.remove(path)
-        delete_record(filename + filetype, os.path.dirname(path))
-        print('File unpathified successfully.')
-    elif delete_file:
-        # This shouldn't happen.
-        print('ERROR: File not found. Try debugging the program.')
+    if confirm_delete:
+        message = 'Delete successful:'
+
+        for choice in choice_list:
+            (path, filename, filetype) = choice
+            path = os.path.join(path, filename + filetype)
+
+            if os.path.isfile(path):
+                os.remove(path)
+            else:
+                # This shouldn't happen.
+                print('ERROR: File not found. Try debugging the program.')
+
+        cmd_record()
     else:
         print('Operation cancelled.')
 
-def cmd_record(args):
+def cmd_record(args=None):
     (added, deleted, expired) = cmd_record_update(args)
     cmd_record_ls(args, added, deleted, expired)
 
@@ -227,7 +236,7 @@ def cmd_record_update(args=None):
 
     return (added, deleted, expired)
 
-def cmd_record_ls(args, added=None, deleted=None, expired=None):
+def cmd_record_ls(args=None, added=None, deleted=None, expired=None):
     records = get_record()
 
     if not added:
@@ -446,17 +455,22 @@ def choose_file(target_folder, filename='', filetype='', files=[]):
 
         # Prompt user, catching keyboard interrupt
         try:
-            result = utils.prompt(message, options, {'catch_interrupt': False})
+            prompt_options = {
+                'catch_interrupt': False,
+                'list_delimiter': ','
+            }
+            result = utils.prompt(message, options, prompt_options)
         except KeyboardInterrupt:
             return None
     else:
         # There are no matches
         return False
 
-    # Return new file information as (directory, filename, filetype)
+    # Return new file information as (directory, filename, filetype).
+    # If the user selected multiple choices the result will be a list of tuples.
     return result
 
-def delete_record(filename, destination):
+def delete_record_entry(filename, destination):
     records = get_record()
 
     if destination in records.keys() and filename in records[destination].keys():
@@ -580,7 +594,7 @@ def update_record():
             path = os.path.join(destination, filename)
 
             if not os.path.exists(path):
-                delete_record(filename, destination)
+                delete_record_entry(filename, destination)
 
                 deleted['list'].append({
                     'destination': destination,
