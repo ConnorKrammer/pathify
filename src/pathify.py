@@ -418,7 +418,9 @@ def choose_file(target_folder, filename='', filetype='', files=[]):
 
     if len(suggestions) == 1:
         (filename, filetype) = os.path.splitext(suggestions[0])
-        result = (target_folder, filename, filetype)
+
+        # For return-type consistency, wrap the result in a list.
+        result = [(target_folder, filename, filetype)]
     elif suggestions:
         if not filetype:
             message = 'Which ' + (filename or 'file') + ' do you want to select?'
