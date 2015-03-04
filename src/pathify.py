@@ -87,7 +87,12 @@ def cmd_do(args):
         target_path = os.path.join(target_path, filename + filetype)
 
         # Build destination path. Change the extension to match the template.
-        dest_path = os.path.join(dest_folder, filename + template_filetype)
+        # TODO: allow choosing custom names when using a list (--name flag), similar
+        #       to how it works with just a single file but interactive.
+        if len(choice_list) == 1 and args.filename:
+            dest_path = os.path.join(dest_folder, args.filename + template_filetype)
+        else:
+            dest_path = os.path.join(dest_folder, filename + template_filetype)
 
         # Determine correct interpreter
         default_interpreter = config.get('INTERPRETER', filetype, fallback=None)
@@ -180,7 +185,16 @@ def cmd_undo(args):
         print('Target not found. Run `pathify record` to see possible choices for `undo`.')
         return
 
-    message = 'Are you sure you want to delete those choices? [y/n]'
+    message = 'Are you sure you want to delete '
+
+    # TODO: improve this dialogue
+    if len(choice_list) == 1:
+        message += choice_list[0][1] + choice_list[0][2] + '?'
+    else:
+        message += ' those ' + len(choice_list) + ' choices?'
+
+    message += ' [y/n]'
+
     choices = {
         ('y', 'yes'): True,
         ('n', 'no'): False

@@ -1,2 +1,5 @@
-*        text=auto    eol=lf
+*.py     text=auto    eol=lf
+*.json   text=auto    eol=lf
 *.bat    text=auto    eol=crlf
+*.md     text=auto
+*.txt    text=auto
